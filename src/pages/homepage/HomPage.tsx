@@ -2,6 +2,7 @@ import {useRef, useState} from 'react';
 import {request} from '@octokit/request';
 import {Endpoints} from '@octokit/types';
 import Modal from '../../components/modal';
+import Loading from '../../components/loading';
 import {RouteComponentProps} from '@reach/router';
 
 type listReposResponse =
@@ -12,6 +13,7 @@ export const HomePage: React.FC<RouteComponentProps> = () => {
   const [readme, setReadme] = useState<any>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
 
   const onSearch = async (event: any) => {
     const username = inputRef?.current?.value;
@@ -19,6 +21,7 @@ export const HomePage: React.FC<RouteComponentProps> = () => {
       const repos = await request('GET /users/{username}/repos', {
         username,
       });
+
       setRepos(repos.data);
     }
   };
@@ -28,17 +31,29 @@ export const HomePage: React.FC<RouteComponentProps> = () => {
       .then(response => response.text())
       .then(res => {
         setReadme(res);
+        setShowLoading(false);
+        setShowModal(true);
       });
   };
 
   const getReadme = async (repo: listReposResponse[0]) => {
-    setShowModal(true);
-    const readme = await request('GET /repos/{owner}/{repo}/readme', {
+    setShowLoading(true);
+    request('GET /repos/{owner}/{repo}/readme', {
       owner: repo.owner.login,
       repo: repo.name,
-    });
-
-    if (readme.data.download_url) getContent(readme.data.download_url);
+    })
+      .then(readme => {
+        if (readme.data.download_url) {
+          getContent(readme.data.download_url);
+        } else {
+          setShowLoading(false);
+          alert('Not found');
+        }
+      })
+      .catch(e => {
+        setShowLoading(false);
+        alert('Not found');
+      });
   };
 
   return (
@@ -122,6 +137,8 @@ export const HomePage: React.FC<RouteComponentProps> = () => {
           </div>
         </div>
       </main>
+
+      <Loading showLoading={showLoading} />
       <Modal
         showModal={showModal}
         setShowModal={setShowModal}
